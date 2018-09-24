@@ -229,6 +229,37 @@ static av_cold int v4l2_decode_close(AVCodecContext *avctx)
     return ff_v4l2_m2m_codec_end(priv);
 }
 
+static void v4l2_flush(AVCodecContext *avctx)
+{
+    V4L2m2mPriv *priv = avctx->priv_data;
+    V4L2m2mContext* s = priv->context;
+    int ret;
+    int i;
+
+    V4L2Context* output = &s->output;
+
+    av_log(avctx, AV_LOG_DEBUG, "v4l2_flush start\n");
+
+    av_packet_unref(&s->buf_pkt);
+
+    ret = ff_v4l2_context_set_status(&s->output, VIDIOC_STREAMOFF);
+    if (ret)
+        av_log(avctx, AV_LOG_ERROR, "VIDIOC_STREAMOFF %s\n", s->output.name);
+
+    ret = ff_v4l2_context_set_status(&s->output, VIDIOC_STREAMON);
+    if (ret)
+        av_log(avctx, AV_LOG_ERROR, "VIDIOC_STREAMON %s\n", s->capture.name);
+
+    for (i = 0; i < output->num_buffers; i++) {
+        V4L2Buffer* avbuf = &output->buffers[i];
+        if (avbuf->status == V4L2BUF_IN_DRIVER) {
+            avbuf->status = V4L2BUF_AVAILABLE;
+        }
+    }
+
+    av_log(avctx, AV_LOG_DEBUG, "v4l2_flush end\n");
+}
+
 #define OFFSET(x) offsetof(V4L2m2mPriv, x)
 #define FLAGS AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_DECODING_PARAM
 
@@ -259,6 +290,7 @@ static const AVOption options[] = {
         .init           = v4l2_decode_init, \
         .receive_frame  = v4l2_receive_frame, \
         .close          = v4l2_decode_close, \
+        .flush          = v4l2_flush, \
         .bsfs           = bsf_name, \
         .capabilities   = AV_CODEC_CAP_HARDWARE | AV_CODEC_CAP_DELAY | AV_CODEC_CAP_AVOID_PROBING, \
         .caps_internal  = FF_CODEC_CAP_SETS_PKT_DTS, \
