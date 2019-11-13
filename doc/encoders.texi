@@ -3080,6 +3080,32 @@ required to produce a stream usable with all decoders.
 
 @end table
 
+@section v4l2m2m
+
+@command{ffmpeg} supports a set of v4l2m2m wrappers for interfacing with hardware encoders.
+Depending on the hardware's capabilties the following encoders may be selected:
+mpeg4, h263, h264, hevc, and vp8.
+
+To use a specific encoder append _v4l2m2m suffix. For example to select h264 use:
+@example
+ffmpeg -i INPUT [-pix_fmt pixfmt] [-list_formats 1] -codec:v h264_v4l2m2m OUTPUT
+@end example
+Depending on the hardware device, it may be necessary to explicitly set the
+-pix_fmt option. List of supported of encoders and pixfmt can be
+output using "-list_formats 1" option.
+
+The following standard libavcodec options are supported:
+@itemize
+@item
+@option{g} / @option{gop_size}
+@item
+@option{qpel}
+@item
+@option{qmin}
+@item
+@option{qmax}
+@end itemize
+
 @section vc2
 
 SMPTE VC-2 (previously BBC Dirac Pro). This codec was primarily aimed at

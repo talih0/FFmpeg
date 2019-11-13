@@ -79,6 +79,18 @@ AVS2-P2/IEEE1857.4 video decoder wrapper.
 
 This decoder allows libavcodec to decode AVS2 streams with davs2 library.
 
+@section v4l2m2m
+
+@command{ffmpeg} supports a set of v4l2m2m wrappers for interfacing with
+hardware decoders. Depending on the hardware's capabilties the following decoders may be selected:
+h264, hevc, mpeg1video, mpeg2video, mpeg4, h263, vc1, vp8, vp9.
+
+To force a specifix decoder append a  _v4l2m2m suffix. For example to select h264 use:
+@example
+ffmpeg [-list_formats 1] -codec:v h264_v4l2m2m -i INPUT OUTPUT
+@end example
+List of supported of decoders can be identified using "-list_formats 1" option.
+
 @c man end VIDEO DECODERS
 
 @chapter Audio Decoders
