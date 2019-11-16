@@ -99,7 +99,7 @@ static int v4l2_prepare_contexts(V4L2m2mContext* s, int probe)
 
 static int v4l2_probe_driver(V4L2m2mContext* s)
 {
-    void *log_ctx = s->priv;
+    V4L2m2mPriv *priv_ctx = s->priv;
     int ret;
 
     s->fd = open(s->devname, O_RDWR | O_NONBLOCK, 0);
@@ -110,22 +110,28 @@ static int v4l2_probe_driver(V4L2m2mContext* s)
     if (ret < 0)
         goto done;
 
+    if (priv_ctx->list_formats) {
+        ff_v4l2_list_formats(&s->output, &s->capture);
+        ret = AVERROR_EXIT;
+        goto done;
+    }
+
     ret = ff_v4l2_context_get_format(&s->output, 1);
     if (ret) {
-        av_log(log_ctx, AV_LOG_DEBUG, "v4l2 output format not supported\n");
+        av_log(priv_ctx, AV_LOG_DEBUG, "v4l2 output format not supported\n");
         goto done;
     }
 
     ret = ff_v4l2_context_get_format(&s->capture, 1);
     if (ret) {
-        av_log(log_ctx, AV_LOG_DEBUG, "v4l2 capture format not supported\n");
+        av_log(priv_ctx, AV_LOG_DEBUG, "v4l2 capture format not supported\n");
         goto done;
     }
 
 done:
     if (close(s->fd) < 0) {
         ret = AVERROR(errno);
-        av_log(log_ctx, AV_LOG_ERROR, "failure closing %s (%s)\n", s->devname, av_err2str(AVERROR(errno)));
+        av_log(priv_ctx, AV_LOG_ERROR, "failure closing %s (%s)\n", s->devname, av_err2str(AVERROR(errno)));
     }
 
     s->fd = -1;

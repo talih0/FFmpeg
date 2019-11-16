@@ -29,9 +29,29 @@
 #include <poll.h>
 #include "libavcodec/avcodec.h"
 #include "libavcodec/internal.h"
+#include "libavutil/pixdesc.h"
+#include "libavutil/avassert.h"
 #include "v4l2_buffers.h"
 #include "v4l2_fmt.h"
 #include "v4l2_m2m.h"
+
+#define IS_SUPPORTED_ENC(codec_id) (codec_id == AV_CODEC_ID_MPEG4 || \
+                                    codec_id == AV_CODEC_ID_H263  || \
+                                    codec_id == AV_CODEC_ID_H264  || \
+                                    codec_id == AV_CODEC_ID_HEVC  || \
+                                    codec_id == AV_CODEC_ID_VP8)
+
+#define IS_SUPPORTED_DEC(coded_id) (codec_id == AV_CODEC_ID_H264       || \
+                                    codec_id == AV_CODEC_ID_HEVC       || \
+                                    codec_id == AV_CODEC_ID_MPEG1VIDEO || \
+                                    codec_id == AV_CODEC_ID_MPEG2VIDEO || \
+                                    codec_id == AV_CODEC_ID_MPEG4      || \
+                                    codec_id == AV_CODEC_ID_H263       || \
+                                    codec_id == AV_CODEC_ID_VC1        || \
+                                    codec_id == AV_CODEC_ID_VP8        || \
+                                    codec_id == AV_CODEC_ID_VP9)
+
+#define IS_SUPPORTED(codec_id, is_decoder) (is_decoder ? IS_SUPPORTED_DEC(codec_id) : IS_SUPPORTED_ENC(codec_id))
 
 struct v4l2_format_update {
     uint32_t v4l2_fmt;
@@ -530,6 +550,57 @@ static int v4l2_get_coded_format(V4L2Context* ctx, uint32_t *p)
     *p = v4l2_fmt;
 
     return 0;
+}
+
+void ff_v4l2_list_formats(V4L2Context* ctx_output, V4L2Context* ctx_capture)
+{
+    struct v4l2_fmtdesc fdesc;
+    struct v4l2_format format;
+    uint32_t v4l2_fmt;
+    int ret;
+    int is_decoder;
+    int fd = ctx_to_m2mctx(ctx_output)->fd;
+
+    enum AVPixelFormat pix_fmt;
+    enum AVCodecID codec_id;
+
+    V4L2Context* ctx;
+
+    is_decoder = ctx_capture->av_codec_id == AV_CODEC_ID_RAWVIDEO;
+
+    /* check pixel formats first */
+    ctx = is_decoder ? ctx_capture : ctx_output;
+    ret = ff_v4l2_context_get_format(ctx, 1);
+    if (ret)
+        return;
+
+    if (V4L2_TYPE_IS_MULTIPLANAR(ctx->type))
+        v4l2_fmt = ctx->format.fmt.pix_mp.pixelformat;
+    else
+        v4l2_fmt = ctx->format.fmt.pix.pixelformat;
+
+    pix_fmt = ff_v4l2_format_v4l2_to_avfmt(v4l2_fmt, AV_CODEC_ID_RAWVIDEO);
+
+    /* check supported formats */
+    ctx = is_decoder ? ctx_output : ctx_capture;
+    memset(&fdesc, 0, sizeof(fdesc));
+    fdesc.type = ctx->type;
+    for (;;) {
+        ret = ioctl(fd, VIDIOC_ENUM_FMT, &fdesc);
+        if (ret)
+            break;
+
+        codec_id = ff_v4l2_format_v4l2_to_avcodec(fdesc.pixelformat);
+
+        if (IS_SUPPORTED(codec_id, is_decoder)) {
+            const AVCodecDescriptor *desc = avcodec_descriptor_get(codec_id);
+            av_log(logger(ctx), AV_LOG_INFO, "Supported format: %s using pix_fmt: %s\n",
+                                                    desc->name, av_get_pix_fmt_name(pix_fmt));
+        }
+        fdesc.index++;
+    }
+
+    return;
 }
 
  /*****************************************************************************

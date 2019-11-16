@@ -129,6 +129,14 @@ int ff_v4l2_context_get_format(V4L2Context* ctx, int probe);
 void ff_v4l2_context_release(V4L2Context* ctx);
 
 /**
+ * List supported formats and pixel formats.
+ *
+ * @param[in] ctx_output A pointer to the output buffer V4L2Context.
+ * @param[in] ctx_capture A pointer to the capture buffer V4L2Context.
+ */
+void ff_v4l2_list_formats(V4L2Context* ctx_output, V4L2Context* ctx_capture);
+
+/**
  * Sets the status of a V4L2Context.
  *
  * @param[in] ctx A pointer to a V4L2Context.

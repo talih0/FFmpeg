@@ -229,6 +229,8 @@ static const AVOption options[] = {
     V4L_M2M_DEFAULT_OPTS,
     { "num_capture_buffers", "Number of buffers in the capture context",
         OFFSET(num_capture_buffers), AV_OPT_TYPE_INT, {.i64 = 20}, 20, INT_MAX, FLAGS },
+    { "list_formats", "List supported formats",
+        OFFSET(list_formats), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, 1, FLAGS},
     { NULL},
 };
 

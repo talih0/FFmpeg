@@ -73,6 +73,7 @@ typedef struct V4L2m2mPriv {
 
     int num_output_buffers;
     int num_capture_buffers;
+    int list_formats;
 } V4L2m2mPriv;
 
 /**
