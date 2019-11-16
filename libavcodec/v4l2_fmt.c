@@ -119,6 +119,16 @@ uint32_t ff_v4l2_format_avcodec_to_v4l2(enum AVCodecID avcodec)
     return 0;
 }
 
+enum AVCodecID ff_v4l2_format_v4l2_to_avcodec(uint32_t v4l2_fmt)
+{
+    int i;
+    for (i = 0; i < FF_ARRAY_ELEMS(fmt_map); i++) {
+        if (fmt_map[i].v4l2_fmt == v4l2_fmt)
+            return fmt_map[i].avcodec;
+    }
+    return AV_CODEC_ID_NONE;
+}
+
 uint32_t ff_v4l2_format_avfmt_to_v4l2(enum AVPixelFormat avfmt)
 {
     int i;
