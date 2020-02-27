@@ -93,7 +93,7 @@ void av_fast_padded_mallocz(void *ptr, unsigned int *size, size_t min_size)
 
 int av_codec_is_encoder(const AVCodec *codec)
 {
-    return codec && (codec->encode_sub || codec->encode2 ||codec->send_frame);
+    return codec && (codec->encode_sub || codec->encode2 || codec->receive_packet);
 }
 
 int av_codec_is_decoder(const AVCodec *codec)
@@ -607,6 +607,12 @@ int attribute_align_arg avcodec_open2(AVCodecContext *avctx, const AVCodec *code
         goto free_and_end;
     }
 
+    avci->es.in_frame = av_frame_alloc();
+    if (!avctx->internal->es.in_frame) {
+        ret = AVERROR(ENOMEM);
+        goto free_and_end;
+    }
+
     avci->buffer_pkt = av_packet_alloc();
     if (!avci->buffer_pkt) {
         ret = AVERROR(ENOMEM);
@@ -1074,6 +1080,7 @@ FF_ENABLE_DEPRECATION_WARNINGS
         av_packet_free(&avci->last_pkt_props);
 
         av_packet_free(&avci->ds.in_pkt);
+        av_frame_free(&avci->es.in_frame);
         ff_decode_bsfs_uninit(avctx);
 
         av_freep(&avci->pool);
@@ -1094,9 +1101,9 @@ void avcodec_flush_buffers(AVCodecContext *avctx)
     av_frame_unref(avci->buffer_frame);
     av_frame_unref(avci->compat_decode_frame);
     av_packet_unref(avci->buffer_pkt);
-    avci->buffer_pkt_valid = 0;
 
     av_packet_unref(avci->ds.in_pkt);
+    av_frame_unref(avci->es.in_frame);
 
     if (HAVE_THREADS && avctx->active_thread_type & FF_THREAD_FRAME)
         ff_thread_flush(avctx);
@@ -1162,6 +1169,7 @@ av_cold int avcodec_close(AVCodecContext *avctx)
         av_packet_free(&avctx->internal->last_pkt_props);
 
         av_packet_free(&avctx->internal->ds.in_pkt);
+        av_frame_free(&avctx->internal->es.in_frame);
 
         for (i = 0; i < FF_ARRAY_ELEMS(pool->pools); i++)
             av_buffer_pool_uninit(&pool->pools[i]);
