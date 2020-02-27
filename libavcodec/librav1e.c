@@ -30,12 +30,14 @@
 #include "libavutil/opt.h"
 #include "libavutil/pixdesc.h"
 #include "avcodec.h"
+#include "encode.h"
 #include "internal.h"
 
 typedef struct librav1eContext {
     const AVClass *class;
 
     RaContext *ctx;
+    AVFrame *frame;
     AVBSFContext *bsf;
 
     uint8_t *pass_data;
@@ -166,6 +168,7 @@ static av_cold int librav1e_encode_close(AVCodecContext *avctx)
         ctx->ctx = NULL;
     }
 
+    av_frame_free(&ctx->frame);
     av_bsf_free(&ctx->bsf);
     av_freep(&ctx->pass_data);
 
@@ -179,6 +182,10 @@ static av_cold int librav1e_encode_init(AVCodecContext *avctx)
     RaConfig *cfg = NULL;
     int rret;
     int ret = 0;
+
+    ctx->frame = av_frame_alloc();
+    if (!ctx->frame)
+        return AVERROR(ENOMEM);
 
     cfg = rav1e_config_default();
     if (!cfg) {
@@ -399,27 +406,36 @@ end:
     return ret;
 }
 
-static int librav1e_send_frame(AVCodecContext *avctx, const AVFrame *frame)
+static int librav1e_receive_packet(AVCodecContext *avctx, AVPacket *pkt)
 {
     librav1eContext *ctx = avctx->priv_data;
+    AVFrame *frame = ctx->frame;
     RaFrame *rframe = NULL;
+    RaPacket *rpkt = NULL;
     int ret;
 
-    if (frame) {
-        const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(frame->format);
+    if (!frame->buf[0]) {
+        const AVPixFmtDescriptor *desc;
 
-        rframe = rav1e_frame_new(ctx->ctx);
-        if (!rframe) {
-            av_log(avctx, AV_LOG_ERROR, "Could not allocate new rav1e frame.\n");
-            return AVERROR(ENOMEM);
-        }
+        ret = ff_encode_get_frame(avctx, frame);
+        if (ret < 0 && ret != AVERROR_EOF)
+            return ret;
 
-        for (int i = 0; i < desc->nb_components; i++) {
-            int shift = i ? desc->log2_chroma_h : 0;
-            int bytes = desc->comp[0].depth == 8 ? 1 : 2;
-            rav1e_frame_fill_plane(rframe, i, frame->data[i],
-                                   (frame->height >> shift) * frame->linesize[i],
-                                   frame->linesize[i], bytes);
+        if (frame->buf[0]) {
+            rframe = rav1e_frame_new(ctx->ctx);
+            if (!rframe) {
+                av_log(avctx, AV_LOG_ERROR, "Could not allocate new rav1e frame.\n");
+                return AVERROR(ENOMEM);
+            }
+
+            desc = av_pix_fmt_desc_get(frame->format);
+            for (int i = 0; i < desc->nb_components; i++) {
+                int shift = i ? desc->log2_chroma_h : 0;
+                int bytes = desc->comp[0].depth == 8 ? 1 : 2;
+                rav1e_frame_fill_plane(rframe, i, frame->data[i],
+                                       (frame->height >> shift) * frame->linesize[i],
+                                       frame->linesize[i], bytes);
+            }
         }
     }
 
@@ -427,27 +443,21 @@ static int librav1e_send_frame(AVCodecContext *avctx, const AVFrame *frame)
     if (rframe)
          rav1e_frame_unref(rframe); /* No need to unref if flushing. */
 
-    switch (ret) {
+    switch(ret) {
     case RA_ENCODER_STATUS_SUCCESS:
+        av_frame_unref(frame);
         break;
     case RA_ENCODER_STATUS_ENOUGH_DATA:
-        return AVERROR(EAGAIN);
+        break;
     case RA_ENCODER_STATUS_FAILURE:
         av_log(avctx, AV_LOG_ERROR, "Could not send frame: %s\n", rav1e_status_to_str(ret));
+        av_frame_unref(frame);
         return AVERROR_EXTERNAL;
     default:
         av_log(avctx, AV_LOG_ERROR, "Unknown return code %d from rav1e_send_frame: %s\n", ret, rav1e_status_to_str(ret));
+        av_frame_unref(frame);
         return AVERROR_UNKNOWN;
     }
-
-    return 0;
-}
-
-static int librav1e_receive_packet(AVCodecContext *avctx, AVPacket *pkt)
-{
-    librav1eContext *ctx = avctx->priv_data;
-    RaPacket *rpkt = NULL;
-    int ret;
 
 retry:
 
@@ -473,9 +483,7 @@ retry:
         }
         return AVERROR_EOF;
     case RA_ENCODER_STATUS_ENCODED:
-        if (avctx->internal->draining)
-            goto retry;
-        return AVERROR(EAGAIN);
+        goto retry;
     case RA_ENCODER_STATUS_NEED_MORE_DATA:
         if (avctx->internal->draining) {
             av_log(avctx, AV_LOG_ERROR, "Unexpected error when receiving packet after EOF.\n");
@@ -575,7 +583,6 @@ AVCodec ff_librav1e_encoder = {
     .type           = AVMEDIA_TYPE_VIDEO,
     .id             = AV_CODEC_ID_AV1,
     .init           = librav1e_encode_init,
-    .send_frame     = librav1e_send_frame,
     .receive_packet = librav1e_receive_packet,
     .close          = librav1e_encode_close,
     .priv_data_size = sizeof(librav1eContext),
