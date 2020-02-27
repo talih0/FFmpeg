@@ -2020,42 +2020,6 @@ int ff_reget_buffer(AVCodecContext *avctx, AVFrame *frame, int flags)
     return ret;
 }
 
-static void bsfs_flush(AVCodecContext *avctx)
-{
-    DecodeFilterContext *s = &avctx->internal->filter;
-
-    for (int i = 0; i < s->nb_bsfs; i++)
-        av_bsf_flush(s->bsfs[i]);
-}
-
-void avcodec_flush_buffers(AVCodecContext *avctx)
-{
-    AVCodecInternal *avci = avctx->internal;
-
-    avci->draining      = 0;
-    avci->draining_done = 0;
-    avci->nb_draining_errors = 0;
-    av_frame_unref(avci->buffer_frame);
-    av_frame_unref(avci->compat_decode_frame);
-    av_packet_unref(avci->buffer_pkt);
-    avci->buffer_pkt_valid = 0;
-
-    av_packet_unref(avci->ds.in_pkt);
-
-    if (HAVE_THREADS && avctx->active_thread_type & FF_THREAD_FRAME)
-        ff_thread_flush(avctx);
-    else if (avctx->codec->flush)
-        avctx->codec->flush(avctx);
-
-    avctx->pts_correction_last_pts =
-    avctx->pts_correction_last_dts = INT64_MIN;
-
-    bsfs_flush(avctx);
-
-    if (!avctx->refcounted_frames)
-        av_frame_unref(avci->to_free);
-}
-
 void ff_decode_bsfs_uninit(AVCodecContext *avctx)
 {
     DecodeFilterContext *s = &avctx->internal->filter;
