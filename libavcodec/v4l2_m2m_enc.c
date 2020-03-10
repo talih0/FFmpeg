@@ -316,6 +316,7 @@ static av_cold int v4l2_encode_init(AVCodecContext *avctx)
     ret = ff_v4l2_m2m_codec_init(priv);
     if (ret) {
         av_log(avctx, AV_LOG_ERROR, "can't configure encoder\n");
+        ff_v4l2_m2m_codec_end(priv);
         return ret;
     }
 
