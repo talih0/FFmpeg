@@ -205,13 +205,16 @@ static av_cold int v4l2_decode_init(AVCodecContext *avctx)
     ret = ff_v4l2_m2m_codec_init(priv);
     if (ret) {
         av_log(avctx, AV_LOG_ERROR, "can't configure decoder\n");
-        s->self_ref = NULL;
-        av_buffer_unref(&priv->context_ref);
+        ff_v4l2_m2m_codec_end(priv);
 
         return ret;
     }
 
-    return v4l2_prepare_decoder(s);
+    ret = v4l2_prepare_decoder(s);
+    if (ret < 0)
+        ff_v4l2_m2m_codec_end(priv);
+
+    return ret;
 }
 
 static av_cold int v4l2_decode_close(AVCodecContext *avctx)

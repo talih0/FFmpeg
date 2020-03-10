@@ -329,10 +329,15 @@ static av_cold int v4l2_encode_init(AVCodecContext *avctx)
     if (pix_fmt_output != avctx->pix_fmt) {
         const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(pix_fmt_output);
         av_log(avctx, AV_LOG_ERROR, "Encoder requires %s pixel format.\n", desc->name);
+        ff_v4l2_m2m_codec_end(priv);
         return AVERROR(EINVAL);
     }
 
-    return v4l2_prepare_encoder(s);
+    ret = v4l2_prepare_encoder(s);
+    if (ret < 0)
+        ff_v4l2_m2m_codec_end(priv);
+
+    return ret;
 }
 
 static av_cold int v4l2_encode_close(AVCodecContext *avctx)
