@@ -171,6 +171,11 @@ static int v4l2_handle_event(V4L2Context *ctx)
         return 0;
     }
 
+    if (evt.type == V4L2_EVENT_EOS) {
+        ctx->done = 1;
+        return 0;
+    }
+
     if (evt.type != V4L2_EVENT_SOURCE_CHANGE)
         return 0;
 

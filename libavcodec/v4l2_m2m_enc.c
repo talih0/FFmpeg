@@ -155,6 +155,24 @@ static int v4l2_check_b_frame_support(V4L2m2mContext *s)
     return AVERROR_PATCHWELCOME;
 }
 
+static int v4l2_subscribe_eos_event(V4L2m2mContext *s)
+{
+    struct v4l2_event_subscription sub;
+    int ret;
+
+    memset(&sub, 0, sizeof(sub));
+    sub.type = V4L2_EVENT_EOS;
+    ret = ioctl(s->fd, VIDIOC_SUBSCRIBE_EVENT, &sub);
+    if (ret < 0) {
+        av_log(s->avctx, AV_LOG_ERROR,
+                "the v4l2 driver does not support VIDIOC_SUBSCRIBE_EVENT\n"
+                "you must provide an eos event to finish encode\n");
+        return ret;
+    }
+
+    return 0;
+}
+
 static int v4l2_prepare_encoder(V4L2m2mContext *s)
 {
     AVCodecContext *avctx = s->avctx;
@@ -164,6 +182,10 @@ static int v4l2_prepare_encoder(V4L2m2mContext *s)
     /**
      * requirements
      */
+    ret = v4l2_subscribe_eos_event(s);
+    if (ret)
+        return ret;
+
     ret = v4l2_check_b_frame_support(s);
     if (ret)
         return ret;
