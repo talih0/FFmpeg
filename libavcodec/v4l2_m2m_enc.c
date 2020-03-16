@@ -40,8 +40,8 @@ static inline void v4l2_set_timeperframe(V4L2m2mContext *s, unsigned int num, un
     struct v4l2_streamparm parm = { 0 };
 
     parm.type = V4L2_TYPE_IS_MULTIPLANAR(s->output.type) ? V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE : V4L2_BUF_TYPE_VIDEO_OUTPUT;
-    parm.parm.output.timeperframe.denominator = den;
-    parm.parm.output.timeperframe.numerator = num;
+    parm.parm.output.timeperframe.denominator = num;
+    parm.parm.output.timeperframe.numerator = den;
 
     if (ioctl(s->fd, VIDIOC_S_PARM, &parm) < 0)
         av_log(s->avctx, AV_LOG_WARNING, "Failed to set timeperframe");
