@@ -25,6 +25,8 @@
 #include <sys/ioctl.h>
 #include <search.h>
 #include "libavcodec/avcodec.h"
+#include "libavcodec/internal.h"
+#include "libavutil/intreadwrite.h"
 #include "libavutil/pixdesc.h"
 #include "libavutil/pixfmt.h"
 #include "libavutil/opt.h"
@@ -256,6 +258,7 @@ static int v4l2_send_frame(AVCodecContext *avctx, const AVFrame *frame)
 
 static int v4l2_receive_packet(AVCodecContext *avctx, AVPacket *avpkt)
 {
+    V4L2m2mPriv *priv = avctx->priv_data;
     V4L2m2mContext *s = ((V4L2m2mPriv*)avctx->priv_data)->context;
     V4L2Context *const capture = &s->capture;
     V4L2Context *const output = &s->output;
@@ -281,7 +284,28 @@ static int v4l2_receive_packet(AVCodecContext *avctx, AVPacket *avpkt)
     }
 
 dequeue:
-    return ff_v4l2_context_dequeue_packet(capture, avpkt);
+    ret = ff_v4l2_context_dequeue_packet(capture, avpkt);
+    if (ret)
+        return ret;
+
+    if (priv->strip_ivf) {
+        int header_offset = 0;
+        if (avpkt->size >= 32 && AV_RL32(avpkt->data) == MKTAG('D','K','I','F')) {
+            header_offset = 32;
+            priv->ivf_detected = 1;
+        } else if (priv->ivf_detected) {
+            header_offset = 12;
+        }
+        header_offset = FFMIN(header_offset, avpkt->size);
+        avpkt->data  += header_offset;
+        avpkt->size  -= header_offset;
+
+        if (avpkt->size == 0) {
+            av_packet_unref(avpkt);
+            goto dequeue;
+        }
+    }
+    return 0;
 }
 
 static av_cold int v4l2_encode_init(AVCodecContext *avctx)
@@ -349,16 +373,25 @@ static const AVOption options[] = {
     { NULL },
 };
 
-#define M2MENC_CLASS(NAME) \
+static const AVOption vp8_options[] = {
+    V4L_M2M_DEFAULT_OPTS,
+    { "num_capture_buffers", "Number of buffers in the capture context",
+        OFFSET(num_capture_buffers), AV_OPT_TYPE_INT, { .i64 = 4 }, 4, INT_MAX, FLAGS },
+    { "strip_ivf", "Strip ivf container",
+        OFFSET(strip_ivf), AV_OPT_TYPE_BOOL, { .i64 = 1 }, 0, 1, FLAGS },
+    { NULL },
+};
+
+#define M2MENC_CLASS(NAME, OPTIONS) \
     static const AVClass v4l2_m2m_ ## NAME ## _enc_class = { \
         .class_name = #NAME "_v4l2m2m_encoder", \
         .item_name  = av_default_item_name, \
-        .option     = options, \
+        .option     = OPTIONS, \
         .version    = LIBAVUTIL_VERSION_INT, \
     };
 
-#define M2MENC(NAME, LONGNAME, CODEC) \
-    M2MENC_CLASS(NAME) \
+#define M2MENC(NAME, LONGNAME, CODEC, OPTIONS) \
+    M2MENC_CLASS(NAME, OPTIONS) \
     AVCodec ff_ ## NAME ## _v4l2m2m_encoder = { \
         .name           = #NAME "_v4l2m2m" , \
         .long_name      = NULL_IF_CONFIG_SMALL("V4L2 mem2mem " LONGNAME " encoder wrapper"), \
@@ -374,8 +407,8 @@ static const AVOption options[] = {
         .wrapper_name   = "v4l2m2m", \
     };
 
-M2MENC(mpeg4,"MPEG4", AV_CODEC_ID_MPEG4);
-M2MENC(h263, "H.263", AV_CODEC_ID_H263);
-M2MENC(h264, "H.264", AV_CODEC_ID_H264);
-M2MENC(hevc, "HEVC",  AV_CODEC_ID_HEVC);
-M2MENC(vp8,  "VP8",   AV_CODEC_ID_VP8);
+M2MENC(mpeg4,"MPEG4", AV_CODEC_ID_MPEG4, options);
+M2MENC(h263, "H.263", AV_CODEC_ID_H263,  options);
+M2MENC(h264, "H.264", AV_CODEC_ID_H264,  options);
+M2MENC(hevc, "HEVC",  AV_CODEC_ID_HEVC,  options);
+M2MENC(vp8,  "VP8",   AV_CODEC_ID_VP8,   vp8_options);
