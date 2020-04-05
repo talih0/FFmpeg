@@ -453,14 +453,31 @@ int ff_v4l2_buffer_buf_to_avframe(AVFrame *frame, V4L2Buffer *avbuf)
 int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *avbuf)
 {
     int ret;
+    int i;
+    V4L2Context *ctx = avbuf->context;
+
+    for (i = 0; i < ctx->num_buffers; i++) {
+        if (ctx->buffers[i].status == V4L2BUF_IN_DRIVER)
+            break;
+    }
 
     av_packet_unref(pkt);
+    if (i == ctx->num_buffers) {
+        int size = V4L2_TYPE_IS_MULTIPLANAR(avbuf->buf.type) ?
+                   avbuf->buf.m.planes[0].bytesused : avbuf->buf.bytesused;
+        ret = av_new_packet(pkt, size);
+        if (ret < 0)
+            return ret;
+        memcpy(pkt->data, (uint8_t*)avbuf->plane_info[0].mm_addr + avbuf->planes[0].data_offset, size);
+
+    } else {
     ret = v4l2_buf_to_bufref(avbuf, 0, &pkt->buf);
     if (ret)
         return ret;
 
     pkt->size = V4L2_TYPE_IS_MULTIPLANAR(avbuf->buf.type) ? avbuf->buf.m.planes[0].bytesused : avbuf->buf.bytesused;
     pkt->data = pkt->buf->data;
+    }
 
     if (avbuf->buf.flags & V4L2_BUF_FLAG_KEYFRAME)
         pkt->flags |= AV_PKT_FLAG_KEY;
@@ -471,6 +488,9 @@ int ff_v4l2_buffer_buf_to_avpkt(AVPacket *pkt, V4L2Buffer *avbuf)
     }
 
     pkt->dts = pkt->pts = v4l2_get_pts(avbuf);
+
+    if (i == ctx->num_buffers)
+        ff_v4l2_buffer_enqueue(avbuf);
 
     return 0;
 }
