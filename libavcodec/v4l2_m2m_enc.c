@@ -25,6 +25,7 @@
 #include <sys/ioctl.h>
 #include <search.h>
 #include "libavcodec/avcodec.h"
+#include "libavcodec/internal.h"
 #include "libavutil/pixdesc.h"
 #include "libavutil/pixfmt.h"
 #include "libavutil/opt.h"
@@ -391,6 +392,7 @@ static const AVOption options[] = {
         .receive_packet = v4l2_receive_packet, \
         .close          = v4l2_encode_close, \
         .capabilities   = AV_CODEC_CAP_HARDWARE | AV_CODEC_CAP_DELAY, \
+        .caps_internal  = FF_CODEC_CAP_INIT_CLEANUP, \
         .wrapper_name   = "v4l2m2m", \
     };
 
