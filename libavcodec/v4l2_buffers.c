@@ -34,6 +34,7 @@
 #include "v4l2_buffers.h"
 #include "v4l2_m2m.h"
 
+#define V4L2_NOPTS_VALUE LONG_MIN
 #define USEC_PER_SEC 1000000
 static AVRational v4l2_timebase = { 1, USEC_PER_SEC };
 
@@ -62,18 +63,23 @@ static inline void v4l2_set_pts(V4L2Buffer *out, int64_t pts)
 {
     int64_t v4l2_pts;
 
-    if (pts == AV_NOPTS_VALUE)
-        pts = 0;
-
+    if (pts == AV_NOPTS_VALUE) {
+        out->buf.timestamp.tv_sec = V4L2_NOPTS_VALUE;
+        out->buf.timestamp.tv_usec = 0;
+    } else {
     /* convert pts to v4l2 timebase */
     v4l2_pts = av_rescale_q(pts, v4l2_get_timebase(out), v4l2_timebase);
     out->buf.timestamp.tv_usec = v4l2_pts % USEC_PER_SEC;
     out->buf.timestamp.tv_sec = v4l2_pts / USEC_PER_SEC;
+    }
 }
 
 static inline int64_t v4l2_get_pts(V4L2Buffer *avbuf)
 {
     int64_t v4l2_pts;
+
+    if (avbuf->buf.timestamp.tv_sec == V4L2_NOPTS_VALUE)
+        return AV_NOPTS_VALUE;
 
     /* convert pts back to encoder timebase */
     v4l2_pts = (int64_t)avbuf->buf.timestamp.tv_sec * USEC_PER_SEC +
