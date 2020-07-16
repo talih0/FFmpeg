@@ -297,9 +297,10 @@ static int v4l2_receive_packet(AVCodecContext *avctx, AVPacket *avpkt)
 
     if (!frame->buf[0]) {
     ret = ff_encode_get_frame(avctx, frame);
+    if (ret == AVERROR(EAGAIN))
+        goto dequeue;
     if (ret < 0 && ret != AVERROR_EOF)
         return ret;
-
     if (ret == AVERROR_EOF)
         frame = NULL;
     }
