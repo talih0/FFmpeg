@@ -506,7 +506,7 @@ static int write_globalinfo(NUTContext *nut, AVIOContext *bc)
     while ((t = av_dict_get(s->metadata, "", t, AV_DICT_IGNORE_SUFFIX)))
         count += add_info(dyn_bc, t->key, t->value);
 
-    put_v(bc, 0); //stream_if_plus1
+    put_v(bc, 0); //stream_id_plus1
     put_v(bc, 0); //chapter_id
     put_v(bc, 0); //timestamp_start
     put_v(bc, 0); //length
@@ -996,11 +996,11 @@ static int nut_write_packet(AVFormatContext *s, AVPacket *pkt)
                 goto fail;
         }
     } else {
-    if (1LL << (20 + 3 * nut->header_rep_count) <= avio_tell(bc)) {
-        ret = write_headers(s, bc);
-        if (ret < 0)
-            goto fail;
-    }
+        if (1LL << (20 + 3 * nut->header_rep_count) <= avio_tell(bc)) {
+            ret = write_headers(s, bc);
+            if (ret < 0)
+                goto fail;
+        }
     }
 
     if (key_frame && !(nus->last_flags & FLAG_KEY))
