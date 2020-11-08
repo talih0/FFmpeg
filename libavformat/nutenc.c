@@ -684,7 +684,7 @@ static int write_headers(AVFormatContext *avctx, AVIOContext *bc)
     }
 
     nut->last_syncpoint_pos = INT_MIN;
-    nut->header_count++;
+    nut->header_rep_count++;
 
     ret = 0;
 fail:
@@ -988,7 +988,7 @@ static int nut_write_packet(AVFormatContext *s, AVPacket *pkt)
         data_size += sm_size;
     }
 
-    if (1LL << (20 + 3 * nut->header_count) <= avio_tell(bc))
+    if (1LL << (20 + 3 * nut->header_rep_count) <= avio_tell(bc))
         write_headers(s, bc);
 
     if (key_frame && !(nus->last_flags & FLAG_KEY))

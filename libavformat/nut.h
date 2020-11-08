@@ -103,7 +103,8 @@ typedef struct NUTContext {
     unsigned int time_base_count;
     int64_t last_syncpoint_pos;
     int64_t last_resync_pos;
-    int header_count;
+    int header_count;           // elision header count
+    int header_rep_count;       // number of times headers written
     AVRational *time_base;
     struct AVTreeNode *syncpoints;
     int sp_count;
