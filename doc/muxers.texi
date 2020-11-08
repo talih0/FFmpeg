@@ -1822,6 +1822,12 @@ Change the syncpoint usage in nut:
 The @var{none} and @var{timestamped} flags are experimental.
 @item -write_index @var{bool}
 Write index at the end, the default is to write an index.
+@item -header_period @var{value}
+Sets how often global headers are re-inserted into the bytestream.
+Default value is -1. This inserts headers at exponentially increasing locations
+@math{2^23, 2^26, 2^29,...} etc.
+Setting parameter in the range @math{[0,62]}, will insert headers periodically
+after each @math{2^header_period} bytes at the next possible location.
 @end table
 
 @example

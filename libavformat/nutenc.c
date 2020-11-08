@@ -988,10 +988,19 @@ static int nut_write_packet(AVFormatContext *s, AVPacket *pkt)
         data_size += sm_size;
     }
 
+    if (nut->header_period >= 0) {
+        if (avio_tell(bc) >> nut->header_period > nut->header_rep_count) {
+            ret = write_headers(s, bc);
+            nut->header_rep_count = avio_tell(bc) >> nut->header_period;
+            if (ret < 0)
+                goto fail;
+        }
+    } else {
     if (1LL << (20 + 3 * nut->header_rep_count) <= avio_tell(bc)) {
         ret = write_headers(s, bc);
         if (ret < 0)
             goto fail;
+    }
     }
 
     if (key_frame && !(nus->last_flags & FLAG_KEY))
@@ -1221,6 +1230,7 @@ static const AVOption options[] = {
     { "none",        "Disable syncpoints, low overhead and unseekable", 0,             AV_OPT_TYPE_CONST, {.i64 = NUT_PIPE},      INT_MIN, INT_MAX, E, "syncpoints" },
     { "timestamped", "Extend syncpoints with a wallclock timestamp",    0,             AV_OPT_TYPE_CONST, {.i64 = NUT_BROADCAST}, INT_MIN, INT_MAX, E, "syncpoints" },
     { "write_index", "Write index",                               OFFSET(write_index), AV_OPT_TYPE_BOOL,  {.i64 = 1},                   0,       1, E, },
+    { "header_period", "Header insertion parameter",              OFFSET(header_period), AV_OPT_TYPE_INT, {.i64 =-1},                  -1,      62, E, },
     { NULL },
 };
 
