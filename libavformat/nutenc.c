@@ -988,8 +988,11 @@ static int nut_write_packet(AVFormatContext *s, AVPacket *pkt)
         data_size += sm_size;
     }
 
-    if (1LL << (20 + 3 * nut->header_rep_count) <= avio_tell(bc))
-        write_headers(s, bc);
+    if (1LL << (20 + 3 * nut->header_rep_count) <= avio_tell(bc)) {
+        ret = write_headers(s, bc);
+        if (ret < 0)
+            goto fail;
+    }
 
     if (key_frame && !(nus->last_flags & FLAG_KEY))
         store_sp = 1;
