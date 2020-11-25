@@ -627,6 +627,7 @@ extern int vstats_version;
 extern int auto_conversion_filters;
 
 extern const AVIOInterruptCB int_cb;
+extern const AVIOInterruptCB int_one_sig_cb;
 
 extern const OptionDef options[];
 extern const HWAccel hwaccels[];

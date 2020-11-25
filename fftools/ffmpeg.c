@@ -510,7 +510,13 @@ static int decode_interrupt_cb(void *ctx)
     return received_nb_signals > atomic_load(&transcode_init_done);
 }
 
+static int decode_interrupt_one_sig_cb(void *ctx)
+{
+    return received_nb_signals > 0;
+}
+
 const AVIOInterruptCB int_cb = { decode_interrupt_cb, NULL };
+const AVIOInterruptCB int_one_sig_cb = { decode_interrupt_one_sig_cb, NULL };
 
 static void ffmpeg_cleanup(int ret)
 {

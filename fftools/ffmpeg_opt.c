@@ -1156,7 +1156,7 @@ static int open_input_file(OptionsContext *o, const char *filename)
     ic->flags |= AVFMT_FLAG_NONBLOCK;
     if (o->bitexact)
         ic->flags |= AVFMT_FLAG_BITEXACT;
-    ic->interrupt_callback = int_cb;
+    ic->interrupt_callback = int_one_sig_cb;
 
     if (!av_dict_get(o->g->format_opts, "scan_all_pmts", NULL, AV_DICT_MATCH_CASE)) {
         av_dict_set(&o->g->format_opts, "scan_all_pmts", "1", AV_DICT_DONT_OVERWRITE);
