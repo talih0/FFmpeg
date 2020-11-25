@@ -393,8 +393,30 @@ static BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
 }
 #endif
 
+#ifdef __linux__
+#define SIGNAL(sig, func)               \
+    do {                                \
+        action.sa_handler = func;       \
+        sigaction(sig, &action, NULL);  \
+    } while (0)
+#else
+#define SIGNAL(sig, func) \
+    signal(sig, func)
+#endif
+
 void term_init(void)
 {
+#if defined __linux__
+    struct sigaction action;
+    action.sa_handler = sigterm_handler;
+
+    /* block other interrupts while processing this one */
+    sigfillset(&action.sa_mask);
+
+    /* restart interruptible functions (i.e. don't fail with EINTR)  */
+    action.sa_flags = SA_RESTART;
+#endif
+
 #if HAVE_TERMIOS_H
     if (!run_as_daemon && stdin_interaction) {
         struct termios tty;
@@ -413,14 +435,15 @@ void term_init(void)
 
             tcsetattr (0, TCSANOW, &tty);
         }
-        signal(SIGQUIT, sigterm_handler); /* Quit (POSIX).  */
+        SIGNAL(SIGQUIT, sigterm_handler); /* Quit (POSIX).  */
     }
 #endif
 
-    signal(SIGINT , sigterm_handler); /* Interrupt (ANSI).    */
-    signal(SIGTERM, sigterm_handler); /* Termination (ANSI).  */
+    SIGNAL(SIGINT, sigterm_handler);
+    SIGNAL(SIGTERM, sigterm_handler);
+
 #ifdef SIGXCPU
-    signal(SIGXCPU, sigterm_handler);
+    SIGNAL(SIGXCPU, sigterm_handler);
 #endif
 #ifdef SIGPIPE
     signal(SIGPIPE, SIG_IGN); /* Broken pipe (POSIX). */
