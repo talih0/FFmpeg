@@ -211,7 +211,7 @@ int ff_mjpeg_decode_dqt(MJpegDecodeContext *s)
         }
         index = get_bits(&s->gb, 4);
         if (index >= 4)
-            return -1;
+            return AVERROR_INVALIDDATA;
         av_log(s->avctx, AV_LOG_DEBUG, "index=%d\n", index);
         /* read quant table */
         for (i = 0; i < 64; i++) {
